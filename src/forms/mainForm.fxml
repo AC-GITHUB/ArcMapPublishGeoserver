@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+
+
+<FlowPane id="rootPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="608.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <VBox id="vboxPane" prefHeight="402.0" prefWidth="601.0">
+         <children>
+            <MenuBar id="menuBar" prefHeight="25.0" prefWidth="599.0">
+              <menus>
+                <Menu id="menuFile" mnemonicParsing="false" text="文件">
+                  <items>
+                    <MenuItem id="menuItemAll" mnemonicParsing="false" text="提取所有图层" />
+                        <MenuItem id="menuItemSelect" mnemonicParsing="false" text="提取选择的图层" />
+                        <MenuItem id="menuItemSeparate" mnemonicParsing="false" text="分开图层到各个文件" />
+                  </items>
+                </Menu>
+                <Menu id="menuEdit" mnemonicParsing="false" text="编辑">
+                  <items>
+                    <MenuItem mnemonicParsing="false" text="Delete" />
+                  </items>
+                </Menu>
+                <Menu id="menuHelp" mnemonicParsing="false" text="帮助">
+                  <items>
+                    <MenuItem mnemonicParsing="false" text="About" />
+                  </items>
+                </Menu>
+              </menus>
+            </MenuBar>
+            <HBox id="hboxPathSelect" prefHeight="29.0">
+               <children>
+                  <Label prefHeight="15.0" prefWidth="97.0" text="SLD保存路径">
+                     <HBox.margin>
+                        <Insets left="20.0" top="5.0" />
+                     </HBox.margin>
+                  </Label>
+                  <TextField id="txtSLDPath" prefHeight="23.0" prefWidth="412.0" />
+                  <Button id="btnSave" mnemonicParsing="false" text="保存">
+                     <HBox.margin>
+                        <Insets left="10.0" />
+                     </HBox.margin>
+                  </Button>
+               </children>
+               <VBox.margin>
+                  <Insets bottom="10.0" top="10.0" />
+               </VBox.margin>
+            </HBox>
+            <HBox id="hboxConfig" prefHeight="100.0" prefWidth="200.0">
+               <children>
+                  <TitledPane id="dataStylePane" animated="false" text="数据格式">
+                    <content>
+                      <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                           <children>
+                              <RadioButton id="rbtnSDE" layoutX="29.0" layoutY="14.0" mnemonicParsing="false" text="ArcSDE" />
+                              <RadioButton id="rbtnSHP" layoutX="29.0" layoutY="38.0" mnemonicParsing="false" text="Shapefile" />
+                           </children>
+                        </AnchorPane>
+                    </content>
+                  </TitledPane>
+                  <TitledPane id="scalePane" animated="false" text="比例尺">
+                    <content>
+                      <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                           <children>
+                              <Label layoutY="7.0" text="大比例尺" />
+                              <ComboBox id="cmbLargeScale" layoutX="36.0" layoutY="3.0" prefWidth="150.0" AnchorPane.leftAnchor="45.0" />
+                              <Label layoutX="-1.0" layoutY="38.0" text="小比例尺" />
+                              <ComboBox id="cmbSmallScale" layoutX="55.0" layoutY="34.0" prefWidth="150.0" />
+                           </children>
+                        </AnchorPane>
+                    </content>
+                  </TitledPane>
+                  <TitledPane id="SLDTypePane" animated="false" text="SLD类型">
+                    <content>
+                      <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                           <children>
+                              <RadioButton id="rbtnStabdard" layoutX="32.0" layoutY="14.0" mnemonicParsing="false" text="Standard" />
+                              <RadioButton id="rbtnWordMapSLD" layoutX="32.0" layoutY="38.0" mnemonicParsing="false" text="WordMap SLD" />
+                           </children>
+                        </AnchorPane>
+                    </content>
+                  </TitledPane>
+               </children>
+            </HBox>
+            <HBox id="hboxCreate" prefHeight="41.0" prefWidth="606.0">
+               <children>
+                  <CheckBox id="cbxSLDValidation" mnemonicParsing="false" text="SLD验证">
+                     <HBox.margin>
+                        <Insets left="50.0" right="20.0" top="10.0" />
+                     </HBox.margin>
+                  </CheckBox>
+                  <Button id="btnBuildSLD" mnemonicParsing="false" text="生成SLD">
+                     <HBox.margin>
+                        <Insets left="350.0" right="20.0" top="10.0" />
+                     </HBox.margin>
+                  </Button>
+               </children>
+            </HBox>
+            <HBox id="hboxInfoShow" prefHeight="185.0" prefWidth="606.0">
+               <children>
+                  <ListView id="lstInfoShow" prefHeight="185.0" prefWidth="608.0" />
+               </children>
+            </HBox>
+         </children>
+      </VBox>
+   </children>
+</FlowPane>

@@ -1,0 +1,18 @@
+build-full.bat
+target
+.settings
+.classpath
+.project
+.metadata
+.DS_Store
+*.class
+*.pyc
+
+/.metadata/
+
+# Intellij
+.idea/
+*.iml
+out
+# Cucumber Testing artifacts
+cucumber-report

@@ -11,7 +11,7 @@ target
 /.metadata/
 
 # Intellij
-.idea/
+.idea
 *.iml
 out
 # Cucumber Testing artifacts

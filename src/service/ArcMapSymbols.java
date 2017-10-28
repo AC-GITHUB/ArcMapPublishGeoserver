@@ -1,7 +1,9 @@
 package service;
+import com.esri.arcgis.arcmapui.IMxApplication;
 import com.esri.arcgis.arcmapui.IMxDocument;
 import com.esri.arcgis.carto.*;
 import com.esri.arcgis.display.*;
+import com.esri.arcgis.framework.AppROT;
 import com.esri.arcgis.framework.IAppROT;
 import com.esri.arcgis.framework.IApplication;
 import com.esri.arcgis.framework.IObjectFactory;
@@ -10,7 +12,9 @@ import com.esri.arcgis.support.ms.stdole.IEnumVARIANT;
 import com.esri.arcgis.support.ms.stdole.IPicture;
 import com.sun.xml.internal.bind.v2.model.core.ID;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -26,7 +30,7 @@ public class ArcMapSymbols
     private java.util.ArrayList m_al1;
     private java.util.ArrayList m_al2;
     private java.util.ArrayList m_al3;
-    private java.util.ArrayList m_alClassifiedFields;
+    private List<ArrayList> m_alClassifiedFields;
     private String m_cFilename;
     //Die FeatureClass wird hier festgelegt; (ob Punkt-, Linien-, oder Polygonfeature)
     public enum FeatureClass
@@ -120,7 +124,7 @@ public class ArcMapSymbols
     }
     public final static class StructProject
     {
-        public List<IDataset> LayerList; //Hier stecken alle Layer als StructLayer-Sammlung drin
+        public List<Object> LayerList; //Hier stecken alle Layer als StructLayer-Sammlung drin
         public int LayerCount; //Anzahl der Layer
 
         public StructProject clone()
@@ -139,9 +143,9 @@ public class ArcMapSymbols
         public String LayerName; //Der Layername (ist nicht der Name, nach dem klassifiziert wird)
         public String DatasetName; //Der Datasetname (Der Name, nach dem klassifiziert wird)
         public int ValueCount; //Die Anzahl der Wertefelder bzw. Symbole des Layers basierend auf der aktuellen Klassifizierung
-        public java.util.ArrayList SymbolList; //Die Sammlung der einzelnen Attributauspr鋑ungen (Symbole) als Struct*Symbol...
+        public List<Object> SymbolList; //Die Sammlung der einzelnen Attributauspr鋑ungen (Symbole) als Struct*Symbol...
         public int FieldCount; //Die Anzahl der Tabellenfelder, nach denen klassifiziert wird (0: kein Feld; 1 Feld; 2 Felder; 3 Felder max.)
-        public java.util.ArrayList FieldNames; //Die Tabellenfelder, nach denen Klassifiziert wird (max. 3 Felder) als Strings
+        public List<String> FieldNames; //Die Tabellenfelder, nach denen Klassifiziert wird (max. 3 Felder) als Strings
         public String StylePath; //Der Pfad zur Stildefinition oder Stildatei (entspr. Layer Propertys->Symbology->Categorys->Match to Symbol in a Style in ArcMap!)
         public StructAnnotation Annotation; //Annotation label based on feature
 
@@ -170,7 +174,7 @@ public class ArcMapSymbols
         public int BreakCount; //Die Anzahl der Wertefelder bzw. Symbole des Layers basierend auf der aktuellen Klassifizierung
         public String FieldName; //Das Tabellenfeld, nach dem Klassifiziert wird
         public String NormFieldName; //Das Tabellenfeld, nach dem normalisiert wird
-        public java.util.ArrayList SymbolList; //Die Sammlung der einzelnen Attributauspr鋑ungen (Symbole) als Struct*Symbol...
+        public List<Object> SymbolList; //Die Sammlung der einzelnen Attributauspr鋑ungen (Symbole) als Struct*Symbol...
         public StructAnnotation Annotation; //Annotation label based on feature
 
         public StructClassBreaksRenderer clone()
@@ -194,7 +198,7 @@ public class ArcMapSymbols
         public FeatureClass FeatureCls = FeatureClass.forValue(0); //Ob Punkt-, Linien-, oder Polygonfeature
         public String LayerName; //Der Layername (ist nicht der Name, nach dem klassifiziert wird)
         public String DatasetName; //Der Datasetname (Der Name, nach dem klassifiziert wird)
-        public java.util.ArrayList SymbolList; //Die Sammlung der einzelnen Attributauspr鋑ungen (Symbole) als Struct*Symbol... In diesem Fall jew nur 1 Symbol
+        public List<Object> SymbolList; //Die Sammlung der einzelnen Attributauspr鋑ungen (Symbole) als Struct*Symbol... In diesem Fall jew nur 1 Symbol
         public StructAnnotation Annotation; //Annotation label based on feature
 
         public StructSimpleRenderer clone()
@@ -1135,20 +1139,17 @@ public class ArcMapSymbols
         try
         {
             objDataset = (IDataset)Layer.getFeatureClass();
-            strRenderer.LayerName = String.valueOf(Layer.getName());
-            strRenderer.DatasetName = String.valueOf(objDataset.getName());
+            strRenderer.LayerName = Layer.getName();
+            strRenderer.DatasetName =objDataset.getName();
             strRenderer.Annotation = GetAnnotation(Layer).clone();
-            //AB HIER BEGINNEN DIE FALLUNTERSCHEIDUNGEN DER SYMBOLE
             objFstOrderSymbol = Renderer.getSymbol(); //Die Zuweisung der jeweiligen einzelnen Symbole
-            //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
             if (objFstOrderSymbol instanceof ITextSymbol)
             {
                 StructTextSymbol strTS = new StructTextSymbol();
-                ITextSymbol objSymbol = null;
-                objSymbol = (ITextSymbol) objFstOrderSymbol;
+                ITextSymbol objSymbol = (ITextSymbol) objFstOrderSymbol;
                 strTS = StoreText(objSymbol).clone();
                 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                strTS.Label = String.valueOf(Renderer.getLabel());
+                strTS.Label = Renderer.getLabel();
                 strRenderer.SymbolList.add(strTS.clone());
 
             }
@@ -2224,22 +2225,11 @@ public class ArcMapSymbols
         }
         return strRenderer;
     }
-
-    //************************************************************************************************
-    //For Unique Value renderers get the field value or values for the given value index.
-    //With multiple fields, the result is a list of the values for each of the fields.
-    //With a single field, the result is a list with either the single value, or a
-    //list with multiple values if several of the next value indices belong to the
-    //same group.
-    //************************************************************************************************
-    private java.util.ArrayList getUVFieldValues(IUniqueValueRenderer Renderer, int Index) throws IOException {
-        //Es macht nur Sinn hier Fieldvalues einzuf黦en, wenn 黚erhaupt nach einem Feld klassifiziert wurde
-        java.util.ArrayList Fieldvalues = null;
+    private ArrayList getUVFieldValues(IUniqueValueRenderer Renderer, int Index) throws IOException {
+        List<String> Fieldvalues = null;
         int iFieldCount = 0; //Anzahl der Spalten, nach denen klassifiziert wurde
         int Index2 = 0;
-
         iFieldCount = Renderer.getFieldCount();
-        Fieldvalues = null;
         if (iFieldCount > 0)
         {
             boolean bNoSepFieldVal; //Wenn nur nach einem Feld klassifiziert wurde muss der Flag auf true gesetzt werden
@@ -2281,7 +2271,7 @@ public class ArcMapSymbols
                 Fieldvalues = (java.util.ArrayList)(GimmeSeperateFieldValues(Renderer.getValue(Index), Renderer.getFieldDelimiter()));
             }
         }
-        return Fieldvalues;
+        return (ArrayList)Fieldvalues;
     }
 
     //************************************************************************************************
@@ -2453,9 +2443,6 @@ public class ArcMapSymbols
         StructStorage.Angle = symbol.getAngle();
         StructStorage.Color = GimmeStringForColor(symbol.getColor());
         StructStorage.Transparency = symbol.getColor().getTransparency();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.HashSymbol)) //symbol.HashSymbol ist ein Liniensymbol. deshalb bei case... kein IHashSymbol/StructHashLineSymbol
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getHashSymbol()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -2511,9 +2498,6 @@ public class ArcMapSymbols
         StructStorage.Color = GimmeStringForColor(symbol.getColor());
         StructStorage.Transparency = symbol.getColor().getTransparency();
         StructStorage.Width=(symbol.getWidth());
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (MarkerSymbolScan(symbol.MarkerSymbol))
-//ORIGINAL LINE: case "ISimpleMarkerSymbol":
         if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("ISimpleMarkerSymbol"))
         {
             ISimpleMarkerSymbol SMS = null;
@@ -2521,7 +2505,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_SimpleMarker = StoreSimpleMarker(SMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructSimpleMarkerSymbol;
         }
-//ORIGINAL LINE: case "ICharacterMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("ICharacterMarkerSymbol"))
         {
             ICharacterMarkerSymbol CMS = null;
@@ -2529,7 +2512,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_CharacterMarker = StoreCharacterMarker(CMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructCharacterMarkerSymbol;
         }
-//ORIGINAL LINE: case "IPictureMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("IPictureMarkerSymbol"))
         {
             IPictureMarkerSymbol PMS = null;
@@ -2537,7 +2519,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_PictureMarker = StorePictureMarker(PMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructPictureMarkerSymbol;
         }
-//ORIGINAL LINE: case "IArrowMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("IArrowMarkerSymbol"))
         {
             IArrowMarkerSymbol AMS = null;
@@ -2545,7 +2526,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_ArrowMarker = StoreArrowMarker(AMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructArrowMarkerSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("IMultiLayerMarkerSymbol"))
         {
             IMultiLayerMarkerSymbol MLMS = null;
@@ -2553,7 +2533,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_MultilayerMarker = StoreMultiLayerMarker(MLMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructMultilayerMarkerSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreMarkerLine");
@@ -2589,51 +2568,42 @@ public class ArcMapSymbols
         StructStorage.LayerCount = symbol.getLayerCount();
         for (i = 0; i <= symbol.getLayerCount() - 1; i++)
         {
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//		switch (LineSymbolScan(symbol.Layer(i)))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
             if (LineSymbolScan(symbol.getLayer(i)).equals("ICartographicLineSymbol"))
             {
                 ICartographicLineSymbol CLS = null;
                 CLS = (ICartographicLineSymbol) symbol.getLayer(i);
                 StructStorage.MultiLineLayers.add(StoreCartographicLine(CLS).clone());
             }
-//ORIGINAL LINE: case "IHashLineSymbol":
             else if (LineSymbolScan(symbol.getLayer(i)).equals("IHashLineSymbol"))
             {
                 IHashLineSymbol HLS = null;
                 HLS = (IHashLineSymbol) symbol.getLayer(i);
                 StructStorage.MultiLineLayers.add(StoreHashLine(HLS).clone());
             }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
             else if (LineSymbolScan(symbol.getLayer(i)).equals("IMarkerLineSymbol"))
             {
                 IMarkerLineSymbol MLS = null;
                 MLS = (IMarkerLineSymbol) symbol.getLayer(i);
                 StructStorage.MultiLineLayers.add(StoreMarkerLine(MLS).clone());
             }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
             else if (LineSymbolScan(symbol.getLayer(i)).equals("ISimpleLineSymbol"))
             {
                 ISimpleLineSymbol SLS = null;
                 SLS = (ISimpleLineSymbol) symbol.getLayer(i);
                 StructStorage.MultiLineLayers.add(StoreSimpleLine(SLS).clone());
             }
-//ORIGINAL LINE: case "IPictureLineSymbol":
             else if (LineSymbolScan(symbol.getLayer(i)).equals("IPictureLineSymbol"))
             {
                 IPictureLineSymbol PLS = null;
                 PLS = (IPictureLineSymbol) symbol.getLayer(i);
                 StructStorage.MultiLineLayers.add(StorePictureLine(PLS).clone());
             }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
             else if (LineSymbolScan(symbol.getLayer(i)).equals("IMultiLayerLineSymbol"))
             {
                 IMultiLayerLineSymbol MLLS = null;
                 MLLS = (IMultiLayerLineSymbol) symbol.getLayer(i);
                 StructStorage.MultiLineLayers.add(StoreMultilayerLines(MLLS).clone()); //Hier ist ein rekursiver Aufruf
             }
-//ORIGINAL LINE: case "false":
             else if (LineSymbolScan(symbol.getLayer(i)).equals("false"))
             {
                 InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreMultilayerLines");
@@ -2641,13 +2611,6 @@ public class ArcMapSymbols
         }
         return StructStorage;
     }
-
-//_______________________________________________________________________________________________________________________
-
-
-    //************************************************************************************************
-//Die Funktion speichert die SimpleFills in seiner Datenstruktur
-//************************************************************************************************
     private StructSimpleFillSymbol StoreSimpleFill(ISimpleFillSymbol symbol) throws IOException {
         StructSimpleFillSymbol StructStorage = new StructSimpleFillSymbol();
         if (symbol.getStyle() == esriSimpleFillStyle.esriSFSHollow)
@@ -2660,9 +2623,6 @@ public class ArcMapSymbols
         }
         StructStorage.Style =String.valueOf(symbol.getStyle()) ;
         StructStorage.Transparency = symbol.getColor().getTransparency();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline)) //symbol.Outline ist ein Liniensymbol
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -2670,7 +2630,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -2678,7 +2637,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -2686,7 +2644,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -2694,7 +2651,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -2702,7 +2658,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -2710,7 +2665,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreSimpleFill");
@@ -2734,7 +2688,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_SimpleMarker = StoreSimpleMarker(SMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructSimpleMarkerSymbol;
         }
-//ORIGINAL LINE: case "ICharacterMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("ICharacterMarkerSymbol"))
         {
             ICharacterMarkerSymbol CMS = null;
@@ -2742,7 +2695,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_CharacterMarker = StoreCharacterMarker(CMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructCharacterMarkerSymbol;
         }
-//ORIGINAL LINE: case "IPictureMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("IPictureMarkerSymbol"))
         {
             IPictureMarkerSymbol PMS = null;
@@ -2750,7 +2702,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_PictureMarker = StorePictureMarker(PMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructPictureMarkerSymbol;
         }
-//ORIGINAL LINE: case "IArrowMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("IArrowMarkerSymbol"))
         {
             IArrowMarkerSymbol AMS = null;
@@ -2758,7 +2709,6 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_ArrowMarker = StoreArrowMarker(AMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructArrowMarkerSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerMarkerSymbol":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("IMultiLayerMarkerSymbol"))
         {
             IMultiLayerMarkerSymbol MLMS = null;
@@ -2766,14 +2716,10 @@ public class ArcMapSymbols
             StructStorage.MarkerSymbol_MultilayerMarker = StoreMultiLayerMarker(MLMS).clone();
             StructStorage.kindOfMarkerStruct = MarkerStructs.StructMultilayerMarkerSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (MarkerSymbolScan(symbol.getMarkerSymbol()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreMarkerFill");
         }
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -2781,7 +2727,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -2789,7 +2734,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -2797,7 +2741,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -2805,7 +2748,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -2813,7 +2755,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -2821,7 +2762,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreMarkerFill");
@@ -2839,9 +2779,6 @@ public class ArcMapSymbols
         StructStorage.Transparency = symbol.getColor().getTransparency();
         StructStorage.Offset = symbol.getOffset();
         StructStorage.Separation = symbol.getSeparation();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.LineSymbol))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getLineSymbol()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -2849,7 +2786,6 @@ public class ArcMapSymbols
             StructStorage.LineSymbol_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfLineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getLineSymbol()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -2857,7 +2793,6 @@ public class ArcMapSymbols
             StructStorage.LineSymbol_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfLineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getLineSymbol()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -2865,7 +2800,6 @@ public class ArcMapSymbols
             StructStorage.LineSymbol_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfLineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getLineSymbol()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -2873,7 +2807,6 @@ public class ArcMapSymbols
             StructStorage.LineSymbol_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfLineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getLineSymbol()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -2881,7 +2814,6 @@ public class ArcMapSymbols
             StructStorage.LineSymbol_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfLineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getLineSymbol()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -2889,14 +2821,10 @@ public class ArcMapSymbols
             StructStorage.LineSymbol_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfLineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getLineSymbol()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreLineFill");
         }
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -2904,7 +2832,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -2912,7 +2839,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -2920,7 +2846,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -2928,7 +2853,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -2936,7 +2860,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -2944,7 +2867,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreLineFill");
@@ -2975,12 +2897,7 @@ public class ArcMapSymbols
             {
                 IMarkerSymbol MS = null;
                 MS = (IMarkerSymbol) objSymbolArray.getSymbol(i);
-                //!!!ACHTUNG!!! In der ArrayList wird immer abwechselnd ein Symbol und danach die zugeh鰎ige Symbolanzahl
-                //abgespeichert. Das ist nicht elegant aber sp鋞er geschickter beim auslesen!
                 StructStorage.SymbolList = new java.util.ArrayList();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//			switch (MarkerSymbolScan(MS))
-//ORIGINAL LINE: case "ISimpleMarkerSymbol":
                 if (MarkerSymbolScan(MS).equals("ISimpleMarkerSymbol"))
                 {
                     ISimpleMarkerSymbol SMS = null;
@@ -2988,7 +2905,6 @@ public class ArcMapSymbols
                     StructStorage.SymbolList.add(StoreSimpleMarker(SMS).clone());
                     StructStorage.SymbolList.add(symbol.getDotCount(i));
                 }
-//ORIGINAL LINE: case "ICharacterMarkerSymbol":
                 else if (MarkerSymbolScan(MS).equals("ICharacterMarkerSymbol"))
                 {
                     ICharacterMarkerSymbol CMS = null;
@@ -2996,7 +2912,6 @@ public class ArcMapSymbols
                     StructStorage.SymbolList.add(StoreCharacterMarker(CMS).clone());
                     StructStorage.SymbolList.add(symbol.getDotCount(i));
                 }
-//ORIGINAL LINE: case "IPictureMarkerSymbol":
                 else if (MarkerSymbolScan(MS).equals("IPictureMarkerSymbol"))
                 {
                     IPictureMarkerSymbol PMS = null;
@@ -3004,7 +2919,6 @@ public class ArcMapSymbols
                     StructStorage.SymbolList.add(StorePictureMarker(PMS).clone());
                     StructStorage.SymbolList.add(symbol.getDotCount(i));
                 }
-//ORIGINAL LINE: case "IArrowMarkerSymbol":
                 else if (MarkerSymbolScan(MS).equals("IArrowMarkerSymbol"))
                 {
                     IArrowMarkerSymbol AMS = null;
@@ -3012,7 +2926,6 @@ public class ArcMapSymbols
                     StructStorage.SymbolList.add(StoreArrowMarker(AMS).clone());
                     StructStorage.SymbolList.add(symbol.getDotCount(i));
                 }
-//ORIGINAL LINE: case "IMultiLayerMarkerSymbol":
                 else if (MarkerSymbolScan(MS).equals("IMultiLayerMarkerSymbol"))
                 {
                     IMultiLayerMarkerSymbol MLMS = null;
@@ -3020,7 +2933,6 @@ public class ArcMapSymbols
                     StructStorage.SymbolList.add(StoreMultiLayerMarker(MLMS).clone());
                     StructStorage.SymbolList.add(symbol.getDotCount(i));
                 }
-//ORIGINAL LINE: case "false":
                 else if (MarkerSymbolScan(MS).equals("false"))
                 {
                     InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreDotDensityFill");
@@ -3028,9 +2940,6 @@ public class ArcMapSymbols
             }
         }
 
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -3038,7 +2947,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -3046,7 +2954,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -3054,7 +2961,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -3062,7 +2968,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -3070,7 +2975,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -3078,7 +2982,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreLineFill");
@@ -3101,9 +3004,6 @@ public class ArcMapSymbols
         //StructStorage.Picture = symbol.Picture.
         StructStorage.XScale = symbol.getXScale();
         StructStorage.YScale = symbol.getYScale();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -3111,7 +3011,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -3119,7 +3018,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -3127,7 +3025,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -3135,7 +3032,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -3143,7 +3039,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -3151,7 +3046,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StorePictureFill");
@@ -3170,9 +3064,6 @@ public class ArcMapSymbols
         StructStorage.GradientAngle = symbol.getGradientAngle();
         StructStorage.GradientPercentage = symbol.getGradientPercentage();
         StructStorage.IntervallCount = symbol.getIntervalCount();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -3180,7 +3071,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -3188,7 +3078,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -3196,7 +3085,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -3204,7 +3092,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -3212,7 +3099,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -3220,7 +3106,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StorePictureFill");
@@ -3238,58 +3123,48 @@ public class ArcMapSymbols
         int i = 0;
         for (i = 0; i <= symbol.getLayerCount() - 1; i++)
         {
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//		switch (FillSymbolScan(symbol.Layer(i)))
-//ORIGINAL LINE: case "ISimpleFillSymbol":
             if (FillSymbolScan(symbol.getLayer(i)).equals("ISimpleFillSymbol"))
             {
                 ISimpleFillSymbol SFS = null;
                 SFS = (ISimpleFillSymbol) symbol.getLayer(i);
                 StructStorage.MultiFillLayers.add(StoreSimpleFill(SFS).clone());
             }
-//ORIGINAL LINE: case "IMarkerFillSymbol":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("IMarkerFillSymbol"))
             {
                 IMarkerFillSymbol MFS = null;
                 MFS = (IMarkerFillSymbol) symbol.getLayer(i);
                 StructStorage.MultiFillLayers.add(StoreMarkerFill(MFS).clone());
             }
-//ORIGINAL LINE: case "ILineFillSymbol":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("ILineFillSymbol"))
             {
                 ILineFillSymbol LFS = null;
                 LFS = (ILineFillSymbol) symbol.getLayer(i);
                 StructStorage.MultiFillLayers.add(StoreLineFill(LFS).clone());
             }
-//ORIGINAL LINE: case "IPictureFillSymbol":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("IPictureFillSymbol"))
             {
                 IPictureFillSymbol PFS = null;
                 PFS = (IPictureFillSymbol) symbol.getLayer(i);
                 StructStorage.MultiFillLayers.add(StorePictureFill(PFS).clone());
             }
-//ORIGINAL LINE: case "IDotDensityFillSymbol":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("IDotDensityFillSymbol"))
             {
                 IDotDensityFillSymbol DFS = null;
                 DFS = (IDotDensityFillSymbol) symbol.getLayer(i);
                 StructStorage.MultiFillLayers.add(StoreDotDensityFill(DFS).clone());
             }
-//ORIGINAL LINE: case "IGradientFillSymbol":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("IGradientFillSymbol"))
             {
                 IGradientFillSymbol GFS = null;
                 GFS = (IGradientFillSymbol) symbol.getLayer(i);
                 StructStorage.MultiFillLayers.add(StoreGradientFill(GFS).clone());
             }
-//ORIGINAL LINE: case "IMultiLayerFillSymbol":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("IMultiLayerFillSymbol"))
             {
                 IMultiLayerFillSymbol MLFS = null;
                 MLFS = symbol;
                 StructStorage.MultiFillLayers.add(StoreMultiLayerFill(MLFS).clone()); //Hier ist ein rekursiver Aufruf
             }
-//ORIGINAL LINE: case "false":
             else if (FillSymbolScan(symbol.getLayer(i)).equals("false"))
             {
                 InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreMultilayerFill");
@@ -3309,9 +3184,6 @@ public class ArcMapSymbols
         StructStorage.Spacing = symbol.getSpacing();
         StructStorage.VerticalBars = symbol.isVerticalBars();
         StructStorage.Width=(symbol.getWidth());
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Axes))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getAxes()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -3319,7 +3191,6 @@ public class ArcMapSymbols
             StructStorage.Axes_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfAxeslineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getAxes()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -3327,7 +3198,6 @@ public class ArcMapSymbols
             StructStorage.Axes_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfAxeslineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getAxes()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -3335,7 +3205,6 @@ public class ArcMapSymbols
             StructStorage.Axes_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfAxeslineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getAxes()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -3343,7 +3212,6 @@ public class ArcMapSymbols
             StructStorage.Axes_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfAxeslineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getAxes()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -3351,7 +3219,6 @@ public class ArcMapSymbols
             StructStorage.Axes_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfAxeslineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getAxes()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -3359,7 +3226,6 @@ public class ArcMapSymbols
             StructStorage.Axes_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfAxeslineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getAxes()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StoreBarChart");
@@ -3374,9 +3240,6 @@ public class ArcMapSymbols
         StructPieChartSymbol StructStorage = new StructPieChartSymbol();
         StructStorage.Clockwise = symbol.isClockwise();
         StructStorage.UseOutline = symbol.isUseOutline();
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -3384,7 +3247,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -3392,7 +3254,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -3400,7 +3261,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -3408,7 +3268,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -3416,7 +3275,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -3424,7 +3282,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StorePictureFill");
@@ -3441,9 +3298,6 @@ public class ArcMapSymbols
         StructStorage.UseOutline = symbol.isUseOutline();
         StructStorage.VerticalBar = symbol.isVerticalBar();
         StructStorage.Width=(symbol.getWidth());
-//C# TO JAVA CONVERTER NOTE: The following 'switch' operated on a string member and was converted to Java 'if-else' logic:
-//	switch (LineSymbolScan(symbol.Outline))
-//ORIGINAL LINE: case "ICartographicLineSymbol":
         if (LineSymbolScan(symbol.getOutline()).equals("ICartographicLineSymbol"))
         {
             ICartographicLineSymbol CLS = null;
@@ -3451,7 +3305,6 @@ public class ArcMapSymbols
             StructStorage.Outline_CartographicLine = StoreCartographicLine(CLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructCartographicLineSymbol;
         }
-//ORIGINAL LINE: case "IMarkerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMarkerLineSymbol"))
         {
             IMarkerLineSymbol MLS = null;
@@ -3459,7 +3312,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MarkerLine = StoreMarkerLine(MLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMarkerLineSymbol;
         }
-//ORIGINAL LINE: case "IHashLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IHashLineSymbol"))
         {
             IHashLineSymbol HLS = null;
@@ -3467,7 +3319,6 @@ public class ArcMapSymbols
             StructStorage.Outline_HashLine = StoreHashLine(HLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructHashLineSymbol;
         }
-//ORIGINAL LINE: case "ISimpleLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("ISimpleLineSymbol"))
         {
             ISimpleLineSymbol SLS = null;
@@ -3475,7 +3326,6 @@ public class ArcMapSymbols
             StructStorage.Outline_SimpleLine = StoreSimpleLine(SLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructSimpleLineSymbol;
         }
-//ORIGINAL LINE: case "IPictureLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IPictureLineSymbol"))
         {
             IPictureLineSymbol PLS = null;
@@ -3483,7 +3333,6 @@ public class ArcMapSymbols
             StructStorage.Outline_PictureLine = StorePictureLine(PLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructPictureLineSymbol;
         }
-//ORIGINAL LINE: case "IMultiLayerLineSymbol":
         else if (LineSymbolScan(symbol.getOutline()).equals("IMultiLayerLineSymbol"))
         {
             IMultiLayerLineSymbol MLLS = null;
@@ -3491,7 +3340,6 @@ public class ArcMapSymbols
             StructStorage.Outline_MultiLayerLines = StoreMultilayerLines(MLLS).clone();
             StructStorage.kindOfOutlineStruct = LineStructs.StructMultilayerLineSymbol;
         }
-//ORIGINAL LINE: case "false":
         else if (LineSymbolScan(symbol.getOutline()).equals("false"))
         {
             InfoMsg("Seit Erstellen der Programmversion ist eine neue Symbolvariante zu den esri-Symbolen hinzugekommen", "StorePictureFill");
@@ -3529,244 +3377,124 @@ public class ArcMapSymbols
 
     private boolean CentralProcessingFunc()
     {
+        LogRecord.infoMsg("Analysis of the ArcMap-Project is running");
+        boolean blnAnswer = false;
+        OutputSLD objOutputSLD;
+
+        if (GetProcesses() == false)
+        {
+            MyTermination();
+            return false;
+        }
+        if (GetApplication() == false)
+        {
+            MyTermination();
+            return false;
+        }
+        if (GetMap() == false)
+        {
+            MyTermination();
+            return false;
+        }
+        if (AnalyseLayerSymbology() == false)
+        {
+            MyTermination();
+            return false;
+        }
+        if (m_cFilename== null || m_cFilename.equals(""))
+        {
+            LogRecord.infoMsg("Analysis of the ArcMap-Project has finished");
+            LogRecord.showMsg("You haven't specified an SLD store location until now. If you don't specify a location"+ ",the application will be terminated." + "\r\n" + "Do you want to specify a location now?");
+
+            if (blnAnswer)
+            {
+                File file=new File(mainFormProcess.getmSLDFilename());
+                if(file.exists()){
+                    file.delete();
+                    objOutputSLD = new OutputSLD(mainFormProcess, this, m_cFilename);
+                }
+                else
+                {
+                    MyTermination();
+                }
+            }
+            else
+            {
+                MyTermination();
+            }
+        }
+        else
+        {
+            objOutputSLD = new OutputSLD(mainFormProcess, this, m_cFilename); //Aufruf der Ausgabeklasse
+        }
+        mainFormProcess.ReadBackValues(); //Liest die Benutzerdefinierten Einstellungen in die XML-Datei zur點k
         return true;
-//        if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//        {
-//            frmMotherform.CHLabelTop("Die Analyse des ArcMap-Projekts l鋟ft");
-//        }
-//        else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//        {
-//            frmMotherform.CHLabelTop("Analysis of the ArcMap-Project is running");
-//        }
-//
-//        boolean blnAnswer = false;
-//        Output_SLD objOutputSLD;
-//
-//        if (GetProcesses() == false)
-//        {
-//            MyTermination();
-//            return false;
-//        }
-//        if (GetApplication() == false)
-//        {
-//            MyTermination();
-//            return false;
-//        }
-//        if (GetMap() == false)
-//        {
-//            MyTermination();
-//            return false;
-//        }
-//        if (AnalyseLayerSymbology() == false)
-//        {
-//            MyTermination();
-//            return false;
-//        }
-//
-//        //Sicherheitsabfrage, falls noch kein Filename f黵 das SLD angegeben wurde. Dann Aufruf der Ausgabeklasse
-//        if (ReferenceEquals(m_cFilename, null) || m_cFilename.equals(""))
-//        {
-//            if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//            {
-//                frmMotherform.CHLabelTop("Die Analyse des ArcMap-Projekts ist beendet");
-//            }
-//            else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//            {
-//                frmMotherform.CHLabelTop("Analysis of the ArcMap-Project has finished");
-//            }
-//            if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//            {
-//                blnAnswer = JOptionPane.showConfirmDialog(null, "Sie haben noch keinen Dateinamen/Speicherort angegeben. Wenn Sie jetzt keinen Dateinamen angeben" + ",wird die Anwendung beendet." + "\r\n" + "Wollen Sie jetzt einen Dateinamen angeben?", "ArcGIS_SLD_Converter | " + "Analize_ArcMap_Symbols | CentralProcessingFunc", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE) == JOptionPane.YES_OPTION;
-//            }
-//            else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//            {
-//                blnAnswer = JOptionPane.showConfirmDialog(null, "You haven't specified an SLD store location until now. If you don't specify a location" + ",the application will be terminated." + "\r\n" + "Do you want to specify a location now?", "ArcGIS_SLD_Converter | " + "Analize_ArcMap_Symbols | CentralProcessingFunc", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE) == JOptionPane.YES_OPTION;
-//            }
-//            if (blnAnswer)
-//            {
-//                if (File.Exists(frmMotherform.GetSLDFileFromConfigXML))
-//                {
-//                    frmMotherform.dlgSave.InitialDirectory = frmMotherform.GetSLDFileFromConfigXML;
-//                }
-//                if (frmMotherform.dlgSave.ShowDialog == JOptionPane.OK_OPTION)
-//                {
-////C# TO JAVA CONVERTER TODO TASK: There is no equivalent to implicit typing in Java:
-//                    var with_1 = frmMotherform.dlgSave;
-//                    with_1.CheckFileExists = false;
-//                    with_1.CheckPathExists = true;
-//                    with_1.DefaultExt = "sld";
-//                    with_1.Filter = "SLD-files (*.sld)|*.sld";
-//                    with_1.AddExtension = true;
-//                    with_1.InitialDirectory = IO.Path.GetDirectoryName(m_cFilename);
-//                    with_1.OverwritePrompt = true;
-//                    with_1.CreatePrompt = false;
-//                    if (with_1.ShowDialog() == JOptionPane.OK_OPTION)
-//                    {
-//                        m_cFilename = with_1.FileName;
-//                        frmMotherform.txtFileName.setText(m_cFilename);
-//                    }
-//                    objOutputSLD = new Output_SLD(frmMotherform, this, m_cFilename); //Aufruf der Ausgabeklasse
-//                }
-//                else
-//                {
-//                    MyTermination();
-//                }
-//            }
-//            else
-//            {
-//                MyTermination();
-//            }
-//        }
-//        else
-//        {
-//            objOutputSLD = new Output_SLD(frmMotherform, this, m_cFilename); //Aufruf der Ausgabeklasse
-//        }
-//        frmMotherform.CHLabelBottom("");
-//        frmMotherform.CHLabelSmall("");
-//        frmMotherform.ReadBackValues(); //Liest die Benutzerdefinierten Einstellungen in die XML-Datei zur點k
     }
 
     private boolean GetProcesses()
     {
-//        Process objArcGISProcess = new Process();
-//
-//        boolean bSwitch = false; //der Schalter ist notwendig, weil eine ganze Anzahl Prozesse durchlaufen wird
-//
-//        if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//        {
-//            frmMotherform.CHLabelBottom("Suche ArcMap-Prozess");
-//        }
-//        else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//        {
-//            frmMotherform.CHLabelTop("Searching an ArcMap process");
-//        }
-//        try
-//        {
-//            for (Process objProcess : Process.GetProcesses())
-//            {
-//                if (objProcess.ProcessName.equals("ArcMap"))
-//                {
-//                    bSwitch = true;
-//                }
-//            }
-//
-//            if (bSwitch == true)
-//            {
-//                return true;
-//            }
-//            else
-//            {
-//                if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//                {
-//                    JOptionPane.showConfirmDialog(null, "Sie m黶sen erst ArcMap 鰂fnen!");
-//                }
-//                else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//                {
-//                    frmMotherform.CHLabelTop("You must open ArcMap first");
-//                }
-//                return false;
-//            }
-//        }
-//        catch (RuntimeException ex)
-//        {
-//            ErrorMsg("Fehler beim Durchsehen der laufenden Prozesse auf dem System", String.valueOf(ex.getMessage()), String.valueOf(ex.StackTrace), "GetProcesses");
-//            return false;
-//        }
-        return true;
+        boolean bSwitch = false; //der Schalter ist notwendig, weil eine ganze Anzahl Prozesse durchlaufen wird
+        LogRecord.infoMsg("Searching an ArcMap process");
+        try
+        {
+            if (ProcessTool.hasProcessRunByName("ARCMAP"))
+            {
+                return true;
+            }
+            else
+            {
+                LogRecord.showMsg("You must open ArcMap first");
+                return false;
+            }
+        }
+        catch (RuntimeException ex)
+        {
+            ErrorMsg("Fehler beim Durchsehen der laufenden Prozesse auf dem System", String.valueOf(ex.getMessage()), ex.getStackTrace(), "GetProcesses");
+            return false;
+        }
     }
 
-
-    //************************************************************************************************
-//Der erste zentrale Punkt in der Anwendung: hier wird die Referenz auf die laufende ArcMap-Instanz
-//geholt (f黵 exe-Anwendung sehr wichtig!!!)
-//************************************************************************************************
     private boolean GetApplication()
     {
-//        long Zahl = 0;
-//        m_ObjApp = null;
-//
-//        if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//        {
-//            frmMotherform.CHLabelBottom("Hole Verweis auf laufende ArcMap-Sitzung");
-//        }
-//        else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//        {
-//            frmMotherform.CHLabelTop("get reference on running ArcMap-session");
-//        }
-//
-//        try
-//        {
-//            m_ObjAppROT = new AppROT();
-//            Zahl = Long.parseLong(m_ObjAppROT.size());
-//
-//            if (Zahl > 1)
-//            {
-//                if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//                {
-//                    JOptionPane.showConfirmDialog(null, "Sie haben mehrere ArcMap Sessions gleichzeitig ge鰂fnet." + "Bitte schlie遝n Sie alle ArcMap-Anwendungen bis auf jene, von der Sie das" + " SLD-Dokument generieren m鯿hten und starten Sie die Anwendung erneut!", "Bitte Beachten!", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
-//                    return false;
-//                }
-//                else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//                {
-//                    JOptionPane.showConfirmDialog(null, "You started several ArcMap-sessions at one time." + "Please close all sessions except of that, you want to analyse and" + " start the application again!", "Please notice!", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
-//                    return false;
-//                }
-//
-//            }
-//            else
-//            {
-//                if (m_ObjAppROT.Item(0) instanceof IMxApplication) //躡erpr黤ung, ob das richtige Objekt erhalten wurde
-//                {
-//                    m_ObjApp = m_ObjAppROT.Item(0);
-//                    m_ObjDoc = m_ObjApp.Document();
-//                    m_ObjObjectCreator = m_ObjApp;
-//                    return true;
-//                }
-//            }
-//
-//        }
-//        catch (RuntimeException ex)
-//        {
-//            ErrorMsg("Fehler beim Referenzieren auf die ArcMap-Instanz ", String.valueOf(ex.getMessage()), String.valueOf(ex.StackTrace), "GetApplication");
-//            return false;
-//        }
+        long Zahl = 0;
+        m_ObjApp = null;
+        LogRecord.infoMsg("get reference on running ArcMap-session");
+        try
+        {
+            m_ObjAppROT = new AppROT();
+            Zahl = m_ObjAppROT.getCount();
+
+            if (Zahl > 1)
+            {
+                LogRecord.showMsg("You started several ArcMap-sessions at one time."+ "Please close all sessions except of that, you want to analyse and" + " start the application again!");
+            }
+            else
+            {
+                if (m_ObjAppROT.getItem(0) instanceof IMxApplication) //躡erpr黤ung, ob das richtige Objekt erhalten wurde
+                {
+                    m_ObjApp = m_ObjAppROT.getItem(0);
+                    m_ObjDoc = (IMxDocument) m_ObjApp.getDocument();
+                    m_ObjObjectCreator = (IObjectFactory) m_ObjApp;
+                    return true;
+                }
+            }
+
+        }
+        catch (Exception ex)
+        {
+            ErrorMsg("Fehler beim Referenzieren auf die ArcMap-Instanz ", String.valueOf(ex.getMessage()), ex.getStackTrace(), "GetApplication");
+            return false;
+        }
         return true;
     }
-
-
-    //************************************************************************************************
-//Das Kartenobjekt: Hier wird auf das Kartenobjekt referenziert. Wenn es mehrere Karten gibt, erfolg
-//eine Abfrage, ob die aktive Karte die Karte ist, die umgewandelt werden soll
-//************************************************************************************************
     private boolean GetMap()
     {
-
-//        if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//        {
-//            frmMotherform.CHLabelBottom("Verweis auf das aktuelle Kartenfenster");
-//        }
-//        else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//        {
-//            frmMotherform.CHLabelTop("Reference on the current Session");
-//        }
-//
-//        try
-//        {
-//            if (m_ObjDoc.Maps.Count() > 1) //Wenn mehr es mehr als eine Karte in dem Dokument gibt
-//            {
-//                if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//                {
-//                    if (JOptionPane.showConfirmDialog(null, "Ist die von Ihnen zum Umwandeln in SLD gew黱schte Karte gerade die aktive Karte? " + "Wenn ja, dr點ken Sie 'Ja' wenn nicht, dr點ken Sie 'Nein', w鋒len in ArcMap die richtige Karte aus, " + "und bet鋞igen den Befehl noch einmal", "Auswahl der gew黱schten Karte", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE) == JOptionPane.YES_OPTION)
-//                    {
-//                        m_ObjMap = m_ObjDoc.FocusMap;
-//                        return true;
-//                    }
-//                    else
-//                    {
-//                        return false;
-//                    }
-//                }
-//                else if (frmMotherform.m_enumLang == Motherform.Language.English)
+        LogRecord.infoMsg("Reference on the current Session");
+        try
+        {
+            if (m_ObjDoc.getMaps().getCount() > 1) //Wenn mehr es mehr als eine Karte in dem Dokument gibt
+            {
+//                 if (frmMotherform.m_enumLang == Motherform.Language.English)
 //                {
 //                    if (JOptionPane.showConfirmDialog(null, "Is that current map this one you want to turn into SLD? " + "if yes push 'yes' if no push 'no' and choose the right map in ArcMap " + "and use that procedure again", "Choice of the right map", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE) == JOptionPane.YES_OPTION)
 //                    {
@@ -3778,165 +3506,123 @@ public class ArcMapSymbols
 //                        return false;
 //                    }
 //                }
-//            }
-//            else
-//            {
-//                m_ObjMap = m_ObjDoc.FocusMap;
-//                return true;
-//            }
-//        }
-//        catch (RuntimeException ex)
-//        {
-//            ErrorMsg("Fehler beim Erhalten des aktuellen Kartenobjekts ", String.valueOf(ex.getMessage()), String.valueOf(ex.StackTrace), "GetMap");
-//            return false;
-//        }
+            }
+            else
+            {
+                m_ObjMap = m_ObjDoc.getFocusMap();
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMsg("Fehler beim Erhalten des aktuellen Kartenobjekts ", String.valueOf(ex.getMessage()), ex.getStackTrace(), "GetMap");
+            return false;
+        }
         return true;
     }
     private boolean AnalyseLayerSymbology()
     {
-//        ILayer objLayer = null; //Die Schnittstelle zum aktuellen Layer
-//        int iNumberLayers = 0; //Die Anzahl aller Layer
-//        String cLayerName = ""; //Der Name des aktuellen Layers
-//        ISymbol objFstOrderSymbol; //Das ISymbol des entsprechenden Renderers
-//        m_StrProject = new StructProject(); //Projektstruct wird hier initialisiert
-//        iNumberLayers = Integer.parseInt(m_ObjMap.LayerCount());
-//        m_StrProject.LayerList = new java.util.ArrayList();
-//
-//        try
-//        {
-//            int i = 0;
-//            //Steps through all layers of the first level
-//            for (i = 0; i <= iNumberLayers - 1; i++)
-//            {
-//                objLayer = m_ObjMap.Layer(i);
-//                cLayerName = String.valueOf(objLayer.getName());
-//                if (frmMotherform.m_bAllLayers == false && objLayer.getVisible() == false)
-//                {
-//                    if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//                    {
-//                        frmMotherform.CHLabelBottom("Layer " + cLayerName + " wird wird 黚ersprungen, weil sie nicht sichtbar ist.");
-//                    }
-//                    else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//                    {
-//                        frmMotherform.CHLabelBottom("Layer " + cLayerName + " is skipped, because it is not visible");
-//                    }
-//                }
-//                else
-//                {
-//                    if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//                    {
-//                        frmMotherform.CHLabelBottom("Layer " + cLayerName + " wird gerade analysiert");
-//                    }
-//                    else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//                    {
-//                        frmMotherform.CHLabelBottom("Layer " + cLayerName + " is beeing analysed");
-//                    }
-//                    SpreadLayerStructure(objLayer);
-//                }
-//                frmMotherform.CHLabelSmall("");
-//            }
-//            return true;
-//        }
-//        catch (RuntimeException ex)
-//        {
-//            ErrorMsg("Fehler bei der Analyse des esri-Projekts", String.valueOf(ex.getMessage()), String.valueOf(ex.StackTrace), "AnalyseLayerSymbology");
-//            if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//            {
-//                ErrorMsg("Fehler bei der Analyse des esri-Projekts", String.valueOf(ex.getMessage()), String.valueOf(ex.StackTrace), "AnalyseLayerSymbology");
-//            }
-//            else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//            {
-//                ErrorMsg("Exception in ArcMap project analysis", String.valueOf(ex.getMessage()), String.valueOf(ex.StackTrace), "AnalyseLayerSymbology");
-//            }
-//            return false;
-//        }
-        return true;
+        ILayer objLayer = null; //Die Schnittstelle zum aktuellen Layer
+        int iNumberLayers = 0; //Die Anzahl aller Layer
+        String cLayerName = ""; //Der Name des aktuellen Layers
+        ISymbol objFstOrderSymbol; //Das ISymbol des entsprechenden Renderers
+        m_StrProject = new StructProject(); //Projektstruct wird hier initialisiert
+        m_StrProject.LayerList = new java.util.ArrayList();
+        try
+        {
+            iNumberLayers = m_ObjMap.getLayerCount();
+            int i = 0;
+            for (i = 0; i <= iNumberLayers - 1; i++)
+            {
+                objLayer = m_ObjMap.getLayer(i);
+                cLayerName = String.valueOf(objLayer.getName());
+                if (mainFormProcess.ismAllLayers() == false && objLayer.isVisible() == false)
+                {
+                    LogRecord.infoMsg("Layer " + cLayerName + " is skipped, because it is not visible");
+                }
+                else
+                {
+                    LogRecord.infoMsg("Layer " + cLayerName + " is beeing analysed");
+                    SpreadLayerStructure(objLayer);
+                }
+                LogRecord.infoMsg("");
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMsg("Fehler bei der Analyse des esri-Projekts", String.valueOf(ex.getMessage()), ex.getStackTrace(), "AnalyseLayerSymbology");
+            ErrorMsg("Exception in ArcMap project analysis", String.valueOf(ex.getMessage()), ex.getStackTrace(), "AnalyseLayerSymbology");
+            return false;
+        }
     }
-
-    //************************************************************************************************
-//Analizes the Layer structure of the passed first Level-Layer. If the passed Layer is a GeoFeature
-//Layer (or an object beyond that) it will be analized and stored in the Layerstructs and the project
-//struct. If the passed Layer is a group layer, it will be ignored
-//************************************************************************************************
     private boolean SpreadLayerStructure(ILayer objLayer)
     {
 
-//        try
-//        {
-//            //recursive call if the current layer is a group layer. Solution is that Group Layers will be ignored
-//            if (objLayer instanceof IGroupLayer)
-//            {
-//                int j = 0;
-//                IGroupLayer objGRL = null;
-//                ICompositeLayer objCompLayer = null;
-//                objGRL = objLayer;
-//                objCompLayer = objGRL;
-//                for (j = 0; j <= objCompLayer.Count() - 1; j++)
-//                {
-//                    //'Because of this if clause group Layer will be ignored
-//                    //If TypeOf objCompLayer.Layer(j) Is IFeatureLayer Then
-//
-//                    //End If
-//                    SpreadLayerStructure(objCompLayer.Layer(j)); //recursive call
-//
-//                }
-//            }
-//            else if (objLayer instanceof IFeatureLayer)
-//            {
-//                if (objLayer instanceof IGeoFeatureLayer)
-//                {
-//                    IGeoFeatureLayer objGFL = null;
-//                    objGFL = objLayer;
-//                    //Hier die Unterscheidung der Renderertypen
-//                    if (objGFL.Renderer instanceof IUniqueValueRenderer)
-//                    {
-//                        IUniqueValueRenderer objRenderer = null;
-//                        objRenderer = objGFL.Renderer;
-//                        m_StrProject.LayerList.add(StoreStructUVRenderer(objRenderer, objLayer).clone());
-//                        AddOneToLayerNumber();
-//                    }
-//                    if (objGFL.Renderer instanceof ISimpleRenderer)
-//                    {
-//                        ISimpleRenderer objRenderer = null;
-//                        objRenderer = objGFL.Renderer;
-//                        m_StrProject.LayerList.add(StoreStructSimpleRenderer(objRenderer, objLayer).clone());
-//                        AddOneToLayerNumber();
-//                    }
-//                    if (objGFL.Renderer instanceof IClassBreaksRenderer)
-//                    {
-//                        IClassBreaksRenderer objRenderer = null;
-//                        objRenderer = objGFL.Renderer;
-//                        m_StrProject.LayerList.add(StoreStructCBRenderer(objRenderer, objLayer).clone());
-//                        AddOneToLayerNumber();
-//                    }
-//
-//                }
-//
-//            }
-//            else
-//            {
-//                if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//                {
-//                    InfoMsg("Die Layerart ihres ArcMap-Projekts wird derzeit noch nicht unterst黷zt.", "SpreadLayerStructure");
-//                }
-//                else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//                {
-//                    InfoMsg("The kind of Layer you use in your ArcMap project is currently not beeing supported.", "SpreadLayerStructure");
-//                }
-//                MyTermination();
-//            }
-//        }
-//        catch (RuntimeException e)
-//        {
-//            if (frmMotherform.m_enumLang == Motherform.Language.Deutsch)
-//            {
-//                InfoMsg("Unerwarteter Fehler beim Speichern in den Layerstrukturen", "SpreadLayerStructure");
-//            }
-//            else if (frmMotherform.m_enumLang == Motherform.Language.English)
-//            {
-//                InfoMsg("Unexpected Error during storing in layerstructs", "SpreadLayerStructure");
-//            }
-//        }
+        try
+        {
+            //recursive call if the current layer is a group layer. Solution is that Group Layers will be ignored
+            if (objLayer instanceof IGroupLayer)
+            {
+                int j = 0;
+                IGroupLayer objGRL = null;
+                ICompositeLayer objCompLayer = null;
+                objGRL = (IGroupLayer) objLayer;
+                objCompLayer = (ICompositeLayer) objGRL;
+                for (j = 0; j <= objCompLayer.getCount() - 1; j++)
+                {
+                    //'Because of this if clause group Layer will be ignored
+                    //If TypeOf objCompLayer.Layer(j) Is IFeatureLayer Then
+
+                    //End If
+                    SpreadLayerStructure(objCompLayer.getLayer(j)); //recursive call
+
+                }
+            }
+            else if (objLayer instanceof IFeatureLayer)
+            {
+                if (objLayer instanceof IGeoFeatureLayer)
+                {
+                    IGeoFeatureLayer objGFL = null;
+                    objGFL = (IGeoFeatureLayer) objLayer;
+                    //Hier die Unterscheidung der Renderertypen
+                    if (objGFL.getRenderer() instanceof IUniqueValueRenderer)
+                    {
+                        IUniqueValueRenderer objRenderer = null;
+                        objRenderer = (IUniqueValueRenderer) objGFL.getRenderer();
+                        m_StrProject.LayerList.add(StoreStructUVRenderer(objRenderer, (IFeatureLayer)objLayer).clone());
+                        AddOneToLayerNumber();
+                    }
+                    if (objGFL.getRenderer() instanceof ISimpleRenderer)
+                    {
+                        ISimpleRenderer objRenderer = null;
+                        objRenderer = (ISimpleRenderer) objGFL.getRenderer();
+                        m_StrProject.LayerList.add(StoreStructSimpleRenderer(objRenderer, (IFeatureLayer)objLayer).clone());
+                        AddOneToLayerNumber();
+                    }
+                    if (objGFL.getRenderer() instanceof IClassBreaksRenderer)
+                    {
+                        IClassBreaksRenderer objRenderer = null;
+                        objRenderer = (IClassBreaksRenderer) objGFL.getRenderer();
+                        m_StrProject.LayerList.add(StoreStructCBRenderer(objRenderer, (IFeatureLayer) objLayer).clone());
+                        AddOneToLayerNumber();
+                    }
+
+                }
+
+            }
+            else
+            {
+                    InfoMsg("The kind of Layer you use in your ArcMap project is currently not beeing supported.", "SpreadLayerStructure");
+
+                MyTermination();
+            }
+        }
+        catch (Exception e)
+        {
+            InfoMsg("Unexpected Error during storing in layerstructs", "SpreadLayerStructure");
+
+        }
 
         return true;
 
@@ -3983,12 +3669,6 @@ public class ArcMapSymbols
         }
         return cValue;
     }
-
-
-    //************************************************************************************************
-//Wenn das aktuelle Symbol ein LineSymbol ist, wird das LineSymbol, und alle darunter liegenden
-//Objekte (Symbolobjekte) durchgesucht
-//************************************************************************************************
     private String LineSymbolScan(ILineSymbol Symbol)
     {
         String cValue = "";
@@ -4118,14 +3798,6 @@ public class ArcMapSymbols
             return cValue;
         }
     }
-
-
-    //************************************************************************************************
-//Die Funktion gibt eine Liste mit UniqeValues zu dem angegebenen Feld aus
-//Parameter:
-//       Table: Das FeatureTable-Objekt
-//       FieldName: Der Spaltenname der betroffenen Spalte, nach der klassifiziert wurde
-//************************************************************************************************
     private boolean GimmeUniqeValuesForFieldname(ITable Table, String FieldName)
     {
         IQueryDef pQueryDef = null;
@@ -4324,21 +3996,21 @@ public class ArcMapSymbols
                 int i = 0;
                 int j = 0;
                 int k = 0;
-//                for (i = 0; i <= m_alClassifiedFields.get(0).Count() - 1; i++)
-//                {
-//                    for (j = 0; j <= m_alClassifiedFields.get(1).Count() - 1; j++)
-//                    {
-//                        for (k = 0; k <= m_alClassifiedFields.get(2).Count() - 1; k++)
-//                        {
-//                            if (value.equals(((al1.get(i)).toString() + FieldDelimiter + (al2.get(j)).toString() + FieldDelimiter + (al3.get(k)).toString())))
-//                            {
-//                                alSepValues.add(al1.get(i));
-//                                alSepValues.add(al2.get(j));
-//                                alSepValues.add(al3.get(k));
-//                            }
-//                        }
-//                    }
-//                }
+                for (i = 0; i <= m_alClassifiedFields.get(0).size() - 1; i++)
+                {
+                    for (j = 0; j <= m_alClassifiedFields.get(1).size() - 1; j++)
+                    {
+                        for (k = 0; k <= m_alClassifiedFields.get(2).size() - 1; k++)
+                        {
+                            if (value.equals(((al1.get(i)).toString() + FieldDelimiter + (al2.get(j)).toString() + FieldDelimiter + (al3.get(k)).toString())))
+                            {
+                                alSepValues.add(al1.get(i));
+                                alSepValues.add(al2.get(j));
+                                alSepValues.add(al3.get(k));
+                            }
+                        }
+                    }
+                }
             }
             endOfSelect:
             return alSepValues;
@@ -4365,13 +4037,6 @@ public class ArcMapSymbols
         }
         return AL;
     }
-
-
-    //************************************************************************************************
-//Die Funktion nimmt ein esri-IColor-Objekt entgegen, wandelt die Farbe in Web-Schreibweise um, und
-//gibt sie als string zur點k
-//If color is fully transparent, an empty string is returned.
-//************************************************************************************************
     private String GimmeStringForColor(IColor color) throws IOException {
         String cCol = "";
         String cRed = "";
@@ -4396,12 +4061,6 @@ public class ArcMapSymbols
 
         return cCol;
     }
-
-    //************************************************************************************************
-//Die Funktion kontrolliert, ob der den Hexadezimalwert repr鋝entierende String alle 2 Stellen hat
-//(wenn der hexadez nur einstellig ist , wird auch nur eine Stelle zur點kgegeben. Ich brauche auch
-// die vorangestellte Null!
-//************************************************************************************************
     private String CheckDigits(String value)
     {
         String cReturn = "";

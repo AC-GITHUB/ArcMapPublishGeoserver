@@ -1,7 +1,4 @@
 import forms.MainForm;
-import service.CommonXMLHandle;
-
-import java.io.File;
 
 public class Main {
 

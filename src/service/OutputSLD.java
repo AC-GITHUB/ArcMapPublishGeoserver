@@ -2,6 +2,9 @@ package service;
 
 import com.esri.arcgis.display.ISymbol;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+
 public class OutputSLD
 {
     private MainFormProcess mainFormProcess;
@@ -17,8 +20,8 @@ public class OutputSLD
         this.mainFormProcess = mainFormProcess;
         m_cFilename = Filename;
         m_bSepFiles = mainFormProcess.ismSeparateFiles();
-        m_cFile = String.valueOf(mainFormProcess.getmSLDFile());
-        m_cPath = String.valueOf(mainFormProcess.getmSLDPath());
+        m_cFile = mainFormProcess.getmSLDFile();
+        m_cPath = mainFormProcess.getmSLDPath();
         m_objData = Analize;
         m_strDataSavings = m_objData.m_StrProject;
         CentralProcessingFunc();
@@ -35,10 +38,10 @@ public class OutputSLD
         bSuccess = false;
         LogRecord.infoMsg("The Output in SLD");
         LogRecord.infoMsg("the stored data is beeing processed");
-//        if (WriteToSLD() == true)
-//        {
-//            bSuccess = true;
-//        }
+        if (WriteToSLD() == true)
+        {
+            bSuccess = true;
+        }
         LogRecord.infoMsg("Ready");
         if (bSuccess == true)
         {
@@ -78,212 +81,208 @@ public class OutputSLD
     //Extracts the data from the structs and writes to SLD
     //Firstly is decided, if the Layers are written in one or in separate files
     //************************************************************************************************
-//    public final boolean WriteToSLD()
-//    {
-//        int i = 0;
-//        int j = 0;
-//        int l = 0;
-//        String cLayerName = "";
-//        java.util.ArrayList objFieldValues = null;
-//        boolean bDoOneLayer = false;
-//        double dummy = 0; //to buffer the double coming from the layer list
-//
-//        //the decision if separate Layers or one Layer
-//        if (m_bSepFiles == true)
-//        {
-//            bDoOneLayer = false;
-//        }
-//        else
-//        {
-//            bDoOneLayer = true;
-//            //creation of the SLD with only one File using the user defined filename
-//            CreateSLD(m_cFilename);
-//        }
-//
-//
-//        try
-//        {
-//            for (i = 0; i <= m_strDataSavings.LayerCount - 1; i++)
-//            {
-//                cLayerName = m_strDataSavings.LayerList.get(i).getName();
-//                LogRecord.infoMsg("processing layer " + cLayerName);
-//                //Creation of several SLD with that format: /UserDefinedPath/UserDefinedName_LayerName.sld
-//                if (bDoOneLayer == false)
-//                {
-//                    CreateSLD(m_cFilename + "_" + cLayerName +".sld");
-//                }
-//
-//                //XML-Schreibanweisungen auf Projektebene und Layerebene
-//                m_objXMLHandle.CreateElement("NamedLayer");
-//                m_objXMLHandle.CreateElement("LayerName");
-//                m_objXMLHandle.SetElementText(m_strDataSavings.LayerList.get(i).DatasetName);
-//                m_objXMLHandle.CreateElement("UserStyle");
-//                m_objXMLHandle.CreateElement("StyleName");
-//                m_objXMLHandle.SetElementText("Style1");
-//                m_objXMLHandle.CreateElement("FeatureTypeStyle");
-//                m_objXMLHandle.CreateElement("FeatureTypeName");
-//                m_objXMLHandle.SetElementText(m_strDataSavings.LayerList(i).DatasetName);
-//
-//                //XML-Schreibanweisungen auf Layerebene und auf Symbolebene
-//                java.util.ArrayList objSymbols = null; //Die ArrayList mit den Symbolen eines Layers
-//                objSymbols = (java.util.ArrayList)(m_strDataSavings.LayerList(i).SymbolList);
-//                for (j = 0; j <= objSymbols.size() - 1; j++) //IN DER SCHLEIFE AUF SYMBOLEBENE objSymbols(j) repr鋝entiert 1 Symbol!!!
-//                {
-//                    if (frmMotherForm.m_enumLang == Motherform.Language.Deutsch)
-//                    {
-//                        frmMotherForm.CHLabelSmall("Symbol " + (j + 1).toString() + " von " + objSymbols.size().toString());
-//                    }
-//                    else if (frmMotherForm.m_enumLang == Motherform.Language.English)
-//                    {
-//                        frmMotherForm.CHLabelSmall("Symbol " + (j + 1).toString() + " of " + objSymbols.size().toString());
-//                    }
-//
-//                    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                    //HIER DIE UNTERSCHEIDUNGEN NACH DEN EINZELNEN RENDERERN: UNIQUEVALUERENDERER
-//                    if (m_strDataSavings.LayerList(i) instanceof StructUniqueValueRenderer)
-//                    {
-//                        StructUniqueValueRenderer objStructUVR = null;
-//                        objStructUVR = m_strDataSavings.LayerList(i); //Zuweisung des StructsUVR. Repr鋝entiert je einen Layer!!!
-//                        m_objXMLHandle.CreateElement("Rule");
-//                        m_objXMLHandle.CreateElement("RuleName");
-//                        m_objXMLHandle.SetElementText(objSymbols.get(j).Label);
-//                        m_objXMLHandle.CreateElement("Title");
-//                        m_objXMLHandle.SetElementText(objSymbols.get(j).Label);
-//                        m_objXMLHandle.CreateElement("Filter");
-//                        if (frmMotherForm.chkScale.Checked == true)
-//                        {
-//                            m_objXMLHandle.CreateElement("MinScale");
-//                            m_objXMLHandle.SetElementText(frmMotherForm.cboLowScale.getText());
-//                            m_objXMLHandle.CreateElement("MaxScale");
-//                            m_objXMLHandle.SetElementText(frmMotherForm.cboHighScale.getText());
-//                        }
-//                        objFieldValues = (java.util.ArrayList)(objSymbols.get(j).Fieldvalues);
-//                        if (objStructUVR.FieldCount > 1) //Nur wenn nach mehr als 1 Feld klassifiziert wurde, wird der <AND>-Tag gesetzt
-//                        {
-//                            m_objXMLHandle.CreateElement("And");
-//                            for (l = 0; l <= objStructUVR.FieldCount - 1; l++) //Die Schleife ist nur daf黵 da, falls nach mehreren Feldern klassifiziert wurde
-//                            {
-//                                m_objXMLHandle.CreateElement("PropertyIsEqualTo"); //Sie schreibt pro Feld nach dem klass. wurde das <PropertyIsEqualTo> und alle Kinder
-//                                m_objXMLHandle.CreateElement("PropertyName");
-//                                m_objXMLHandle.SetElementText(objStructUVR.FieldNames(l));
-//                                m_objXMLHandle.CreateElement("Fieldvalue");
-//                                m_objXMLHandle.SetElementText(objFieldValues.get(l));
-//                            }
-//                        }
-//                        else if (objStructUVR.FieldCount == 1)
-//                        {
-//                            if (objFieldValues.size() > 1)
-//                            {
-//                                m_objXMLHandle.CreateElement("Or");
-//                            }
-//                            for (l = 0; l <= objFieldValues.size() - 1; l++) //If multiple values grouped in same class
-//                            {
-//                                m_objXMLHandle.CreateElement("PropertyIsEqualTo"); //Sie schreibt pro Feld nach dem klass. wurde das <PropertyIsEqualTo> und alle Kinder
-//                                m_objXMLHandle.CreateElement("PropertyName");
-//                                m_objXMLHandle.SetElementText(objStructUVR.FieldNames(0));
-//                                m_objXMLHandle.CreateElement("Fieldvalue");
-//                                m_objXMLHandle.SetElementText(objFieldValues.get(l));
-//                            }
-//                        }
-//                        //UNTERSCHEIDUNG NACH FEATURECLASS DES BETREFFENDEN SYMBOLS
-//                        if (objStructUVR.FeatureCls == FeatureClass.PointFeature)
-//                        {
-//                            WritePointFeatures(objSymbols.get(j));
-//                        }
-//                        else if (objStructUVR.FeatureCls == FeatureClass.LineFeature)
-//                        {
-//                            WriteLineFeatures(objSymbols.get(j));
-//                        }
-//                        else if (objStructUVR.FeatureCls == FeatureClass.PolygonFeature)
-//                        {
-//                            WritePolygonFeatures(objSymbols.get(j));
-//                        }
-//                        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                        //HIER DIE UNTERSCHEIDUNGEN NACH DEN EINZELNEN RENDERERN: CLASSBREAKSRENDERER
-//                    }
-//                    else if (m_strDataSavings.LayerList(i) instanceof StructClassBreaksRenderer)
-//                    {
-//                        StructClassBreaksRenderer objStructCBR = null;
-//                        objStructCBR = m_strDataSavings.LayerList(i);
-//                        m_objXMLHandle.CreateElement("Rule");
-//                        m_objXMLHandle.CreateElement("RuleName");
-//                        m_objXMLHandle.SetElementText(objSymbols.get(j).Label);
-//                        m_objXMLHandle.CreateElement("Title");
-//                        m_objXMLHandle.SetElementText(objSymbols.get(j).Label);
-//                        m_objXMLHandle.CreateElement("Filter");
-//                        if (frmMotherForm.chkScale.Checked == true)
-//                        {
-//                            m_objXMLHandle.CreateElement("MinScale");
-//                            m_objXMLHandle.SetElementText(frmMotherForm.cboLowScale.getText());
-//                            m_objXMLHandle.CreateElement("MaxScale");
-//                            m_objXMLHandle.SetElementText(frmMotherForm.cboHighScale.getText());
-//                        }
-//                        m_objXMLHandle.CreateElement("PropertyIsBetween");
-//                        m_objXMLHandle.CreateElement("PropertyName");
-//                        m_objXMLHandle.SetElementText(objStructCBR.FieldName);
-//                        m_objXMLHandle.CreateElement("LowerBoundary");
-//                        m_objXMLHandle.CreateElement("Fieldvalue");
-//                        dummy = Double.parseDouble(objSymbols.get(j).LowerLimit); //As ArrayList member the type is no more recognized from compiler. If saving in a dummy double its recognized again
-//                        m_objXMLHandle.SetElementText(CommaToPoint(dummy));
-//                        m_objXMLHandle.CreateElement("UpperBoundary");
-//                        m_objXMLHandle.CreateElement("Fieldvalue");
-//                        dummy = Double.parseDouble(objSymbols.get(j).UpperLimit); //As ArrayList member the type is no more recognized from compiler. If saving in a dummy double its recognized again
-//                        m_objXMLHandle.SetElementText(CommaToPoint(dummy));
-//                        if (objStructCBR.FeatureCls == FeatureClass.PointFeature)
-//                        {
-//                            WritePointFeatures(objSymbols.get(j));
-//                        }
-//                        else if (objStructCBR.FeatureCls == FeatureClass.LineFeature)
-//                        {
-//                            WriteLineFeatures(objSymbols.get(j));
-//                        }
-//                        else if (objStructCBR.FeatureCls == FeatureClass.PolygonFeature)
-//                        {
-//                            WritePolygonFeatures(objSymbols.get(j));
-//                        }
-//                        //HIER DIE UNTERSCHEIDUNGEN NACH DEN EINZELNEN RENDERERN: SIMPLERENDERER
-//                    }
-//                    else if (m_strDataSavings.LayerList(i) instanceof StructSimpleRenderer)
-//                    {
-//                        StructSimpleRenderer objStructSR = null;
-//                        objStructSR = m_strDataSavings.LayerList(i);
-//                        m_objXMLHandle.CreateElement("Rule");
-//                        m_objXMLHandle.CreateElement("RuleName");
-//                        m_objXMLHandle.SetElementText(m_strDataSavings.LayerList(i).DatasetName);
-//                        m_objXMLHandle.CreateElement("Title");
-//                        m_objXMLHandle.SetElementText(m_strDataSavings.LayerList(i).DatasetName);
-//                        if (objStructSR.FeatureCls == FeatureClass.PointFeature)
-//                        {
-//                            WritePointFeatures(objSymbols.get(j));
-//                        }
-//                        else if (objStructSR.FeatureCls == FeatureClass.LineFeature)
-//                        {
-//                            WriteLineFeatures(objSymbols.get(j));
-//                        }
-//                        else if (objStructSR.FeatureCls == FeatureClass.PolygonFeature)
-//                        {
-//                            WritePolygonFeatures(objSymbols.get(j));
-//                        }
-//                        WriteAnnotation(m_strDataSavings.LayerList(i).Annotation);
-//                    }
-//                }
-//                if (bDoOneLayer == false)
-//                {
-//                    m_objXMLHandle.SaveDoc(); //If separate layer, the files have to be saved here
-//                }
-//            }
-//            if (bDoOneLayer == true)
-//            {
-//                m_objXMLHandle.SaveDoc(); //else the file has to be saved here
-//            }
-//            return true;
-//        }
-//        catch (RuntimeException ex)
-//        {
-//            ErrorMsg("Konnte die SLD nicht schreiben", ex.getMessage(), ex.StackTrace, "WriteToSLD");
-//            return false;
-//        }
-//    }
+    public final boolean WriteToSLD()
+    {
+        int i = 0;
+        int j = 0;
+        int l = 0;
+        String cLayerName = "";
+        java.util.ArrayList objFieldValues = null;
+        boolean bDoOneLayer = false;
+        double dummy = 0; //to buffer the double coming from the layer list
+
+        //the decision if separate Layers or one Layer
+        if (m_bSepFiles == true)
+        {
+            bDoOneLayer = false;
+        }
+        else
+        {
+            bDoOneLayer = true;
+            //creation of the SLD with only one File using the user defined filename
+            CreateSLD(m_cFilename);
+        }
+
+
+        try
+        {
+            for (i = 0; i <= m_strDataSavings.LayerCount - 1; i++)
+            {
+                cLayerName =getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),
+                        "LayerName").toString();
+                LogRecord.infoMsg("processing layer " + cLayerName);
+                //Creation of several SLD with that format: /UserDefinedPath/UserDefinedName_LayerName.sld
+                if (bDoOneLayer == false)
+                {
+                    CreateSLD(m_cFilename + "_" + cLayerName +".sld");
+                }
+
+                //XML-Schreibanweisungen auf Projektebene und Layerebene
+                m_objXMLHandle.CreateElement("NamedLayer");
+                m_objXMLHandle.CreateElement("LayerName");
+                m_objXMLHandle.SetElementText(getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),
+                        "DatasetName").toString());
+                m_objXMLHandle.CreateElement("UserStyle");
+                m_objXMLHandle.CreateElement("StyleName");
+                m_objXMLHandle.SetElementText("Style1");
+                m_objXMLHandle.CreateElement("FeatureTypeStyle");
+                m_objXMLHandle.CreateElement("FeatureTypeName");
+                m_objXMLHandle.SetElementText(getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),
+                        "DatasetName").toString());
+                //XML-Schreibanweisungen auf Layerebene und auf Symbolebene
+                java.util.ArrayList objSymbols = null; //Die ArrayList mit den Symbolen eines Layers
+                objSymbols = (java.util.ArrayList)(getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),"SymbolList"));
+                for (j = 0; j <= objSymbols.size() - 1; j++) //IN DER SCHLEIFE AUF SYMBOLEBENE objSymbols(j) repr鋝entiert 1 Symbol!!!
+                {
+                    LogRecord.infoMsg("Symbol " + (j + 1) + " of " + objSymbols.size());
+
+                    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                    //HIER DIE UNTERSCHEIDUNGEN NACH DEN EINZELNEN RENDERERN: UNIQUEVALUERENDERER
+                    if (m_strDataSavings.LayerList.get(i) instanceof ArcMapSymbols.StructUniqueValueRenderer)
+                    {
+                        ArcMapSymbols.StructUniqueValueRenderer objStructUVR = null;
+                        objStructUVR = (ArcMapSymbols.StructUniqueValueRenderer) m_strDataSavings.LayerList.get(i); //Zuweisung des StructsUVR. Repr鋝entiert je einen Layer!!!
+                        m_objXMLHandle.CreateElement("Rule");
+                        m_objXMLHandle.CreateElement("RuleName");
+                        m_objXMLHandle.SetElementText(getFiledValueByFiledName(objSymbols.get(j),"Label").toString());
+                        m_objXMLHandle.CreateElement("Title");
+                        m_objXMLHandle.SetElementText(getFiledValueByFiledName(objSymbols.get(j),"Label").toString());
+                        m_objXMLHandle.CreateElement("Filter");
+                        if (mainFormProcess.chkScale == true)
+                        {
+                            m_objXMLHandle.CreateElement("MinScale");
+                            m_objXMLHandle.SetElementText(mainFormProcess.getmLowScale());
+                            m_objXMLHandle.CreateElement("MaxScale");
+                            m_objXMLHandle.SetElementText(mainFormProcess.getmHighScale());
+                        }
+                        objFieldValues = (java.util.ArrayList)(getFiledValueByFiledName(objSymbols.get(j),"Fieldvalues"));
+                        if (objStructUVR.FieldCount > 1) //Nur wenn nach mehr als 1 Feld klassifiziert wurde, wird der <AND>-Tag gesetzt
+                        {
+                            m_objXMLHandle.CreateElement("And");
+                            for (l = 0; l <= objStructUVR.FieldCount - 1; l++) //Die Schleife ist nur daf黵 da, falls nach mehreren Feldern klassifiziert wurde
+                            {
+                                m_objXMLHandle.CreateElement("PropertyIsEqualTo"); //Sie schreibt pro Feld nach dem klass. wurde das <PropertyIsEqualTo> und alle Kinder
+                                m_objXMLHandle.CreateElement("PropertyName");
+                                m_objXMLHandle.SetElementText(objStructUVR.FieldNames.get(l));
+                                m_objXMLHandle.CreateElement("Fieldvalue");
+                                m_objXMLHandle.SetElementText(objFieldValues.get(l).toString());
+                            }
+                        }
+                        else if (objStructUVR.FieldCount == 1)
+                        {
+                            if (objFieldValues.size() > 1)
+                            {
+                                m_objXMLHandle.CreateElement("Or");
+                            }
+                            for (l = 0; l <= objFieldValues.size() - 1; l++) //If multiple values grouped in same class
+                            {
+                                m_objXMLHandle.CreateElement("PropertyIsEqualTo"); //Sie schreibt pro Feld nach dem klass. wurde das <PropertyIsEqualTo> und alle Kinder
+                                m_objXMLHandle.CreateElement("PropertyName");
+                                m_objXMLHandle.SetElementText(objStructUVR.FieldNames.get(0));
+                                m_objXMLHandle.CreateElement("Fieldvalue");
+                                m_objXMLHandle.SetElementText(objFieldValues.get(l).toString());
+                            }
+                        }
+                        //UNTERSCHEIDUNG NACH FEATURECLASS DES BETREFFENDEN SYMBOLS
+                        if (objStructUVR.FeatureCls == ArcMapSymbols.FeatureClass.PointFeature)
+                        {
+                            WritePointFeatures(objSymbols.get(j));
+                        }
+                        else if (objStructUVR.FeatureCls == ArcMapSymbols.FeatureClass.LineFeature)
+                        {
+                            WriteLineFeatures(objSymbols.get(j));
+                        }
+                        else if (objStructUVR.FeatureCls == ArcMapSymbols.FeatureClass.PolygonFeature)
+                        {
+                            WritePolygonFeatures(objSymbols.get(j));
+                        }
+                        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                        //HIER DIE UNTERSCHEIDUNGEN NACH DEN EINZELNEN RENDERERN: CLASSBREAKSRENDERER
+                    }
+                    else if (m_strDataSavings.LayerList.get(i) instanceof ArcMapSymbols.StructClassBreaksRenderer)
+                    {
+                        ArcMapSymbols.StructClassBreaksRenderer objStructCBR = null;
+                        objStructCBR = (ArcMapSymbols.StructClassBreaksRenderer) m_strDataSavings.LayerList.get(i);
+                        m_objXMLHandle.CreateElement("Rule");
+                        m_objXMLHandle.CreateElement("RuleName");
+                        m_objXMLHandle.SetElementText(getFiledValueByFiledName(objSymbols.get(j),"Label").toString());
+                        m_objXMLHandle.CreateElement("Title");
+                        m_objXMLHandle.SetElementText(getFiledValueByFiledName(objSymbols.get(j),"Label").toString());
+                        m_objXMLHandle.CreateElement("Filter");
+                        if (mainFormProcess.chkScale == true)
+                        {
+                            m_objXMLHandle.CreateElement("MinScale");
+                            m_objXMLHandle.SetElementText(mainFormProcess.getmLowScale());
+                            m_objXMLHandle.CreateElement("MaxScale");
+                            m_objXMLHandle.SetElementText(mainFormProcess.getmHighScale());
+                        }
+                        m_objXMLHandle.CreateElement("PropertyIsBetween");
+                        m_objXMLHandle.CreateElement("PropertyName");
+                        m_objXMLHandle.SetElementText(objStructCBR.FieldName);
+                        m_objXMLHandle.CreateElement("LowerBoundary");
+                        m_objXMLHandle.CreateElement("Fieldvalue");
+//                        dummy = Double.parseDouble(Array.getLength(objSymbols.get(j))); //As ArrayList member the type is no more recognized from compiler. If saving in a dummy double its recognized again
+                        dummy=0;
+                        m_objXMLHandle.SetElementText(CommaToPoint(dummy));
+                        m_objXMLHandle.CreateElement("UpperBoundary");
+                        m_objXMLHandle.CreateElement("Fieldvalue");
+                        dummy = Array.getLength(objSymbols.get(j)); //As ArrayList member the type is no more recognized from compiler. If saving in a dummy double its recognized again
+                        m_objXMLHandle.SetElementText(CommaToPoint(dummy));
+                        if (objStructCBR.FeatureCls == ArcMapSymbols.FeatureClass.PointFeature)
+                        {
+                            WritePointFeatures(objSymbols.get(j));
+                        }
+                        else if (objStructCBR.FeatureCls == ArcMapSymbols.FeatureClass.LineFeature)
+                        {
+                            WriteLineFeatures(objSymbols.get(j));
+                        }
+                        else if (objStructCBR.FeatureCls == ArcMapSymbols.FeatureClass.PolygonFeature)
+                        {
+                            WritePolygonFeatures(objSymbols.get(j));
+                        }
+                        //HIER DIE UNTERSCHEIDUNGEN NACH DEN EINZELNEN RENDERERN: SIMPLERENDERER
+                    }
+                    else if (m_strDataSavings.LayerList.get(i) instanceof ArcMapSymbols.StructSimpleRenderer)
+                    {
+                        ArcMapSymbols.StructSimpleRenderer objStructSR = null;
+                        objStructSR = (ArcMapSymbols.StructSimpleRenderer) m_strDataSavings.LayerList.get(i);
+                        m_objXMLHandle.CreateElement("Rule");
+                        m_objXMLHandle.CreateElement("RuleName");
+                        m_objXMLHandle.SetElementText(getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),"DatasetName").toString());
+                        m_objXMLHandle.CreateElement("Title");
+                        m_objXMLHandle.SetElementText(getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),"DatasetName").toString());
+                        if (objStructSR.FeatureCls == ArcMapSymbols.FeatureClass.PointFeature)
+                        {
+                            WritePointFeatures(objSymbols.get(j));
+                        }
+                        else if (objStructSR.FeatureCls == ArcMapSymbols.FeatureClass.LineFeature)
+                        {
+                            WriteLineFeatures(objSymbols.get(j));
+                        }
+                        else if (objStructSR.FeatureCls == ArcMapSymbols.FeatureClass.PolygonFeature)
+                        {
+                            WritePolygonFeatures(objSymbols.get(j));
+                        }
+                        WriteAnnotation((ArcMapSymbols.StructAnnotation) getFiledValueByFiledName(m_strDataSavings.LayerList.get(i),"Annotation"));
+                    }
+                }
+                if (bDoOneLayer == false)
+                {
+                    m_objXMLHandle.SaveDoc(); //If separate layer, the files have to be saved here
+                }
+            }
+            if (bDoOneLayer == true)
+            {
+                m_objXMLHandle.SaveDoc(); //else the file has to be saved here
+            }
+            return true;
+        }
+        catch (RuntimeException ex)
+        {
+            ErrorMsg("Konnte die SLD nicht schreiben", ex.getMessage(), ex.getStackTrace(), "WriteToSLD");
+            return false;
+        }
+    }
 //
     private boolean WriteAnnotation(ArcMapSymbols.StructAnnotation Annotation)
     {
@@ -2163,6 +2162,16 @@ public class OutputSLD
     {
 //        JOptionPane.showConfirmDialog(null, message, "ArcGIS_SLD_Converter | Output_SLD | " + functionname, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE);
       return  null;
+    }
+    private Object getFiledValueByFiledName(Object obj,String fieldName){
+        try{
+            Class cls=obj.getClass();
+            Field field=cls.getField(fieldName);
+            field.setAccessible(true);
+            return field.get(obj);
+        }catch (Exception ex){
+            return null;
+        }
     }
 
 

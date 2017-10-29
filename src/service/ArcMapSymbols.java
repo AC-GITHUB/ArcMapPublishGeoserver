@@ -32,7 +32,6 @@ public class ArcMapSymbols
     private java.util.ArrayList m_al3;
     private List<ArrayList> m_alClassifiedFields;
     private String m_cFilename;
-    //Die FeatureClass wird hier festgelegt; (ob Punkt-, Linien-, oder Polygonfeature)
     public enum FeatureClass
     {
         PointFeature(0),
